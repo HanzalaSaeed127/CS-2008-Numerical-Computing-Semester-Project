@@ -53,6 +53,9 @@ The ZIP is created in `dist/`. Share it as a GitHub Release asset. Users can
 extract it and double-click `Start Numerica.bat`; they do not need to install
 Python or run a package setup command. The package is for 64-bit Windows.
 
+The portable package is available from the repository's **Releases** page.
+GitHub's green **Code** button only provides the source-code ZIP.
+
 ## Expression examples
 
 Use natural mathematical notation with `x`, or `x` and `y` for ODEs:
