@@ -40,6 +40,19 @@ Open http://localhost:8501. To run tests:
 .venv\Scripts\python.exe -m pytest -q
 ```
 
+## Portable Windows package
+
+To create a ZIP that includes Python and all required packages, open
+PowerShell in the project folder and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build_portable.ps1
+```
+
+The ZIP is created in `dist/`. Share it as a GitHub Release asset. Users can
+extract it and double-click `Start Numerica.bat`; they do not need to install
+Python or run a package setup command. The package is for 64-bit Windows.
+
 ## Expression examples
 
 Use natural mathematical notation with `x`, or `x` and `y` for ODEs:
@@ -60,3 +73,5 @@ Matrices are entered one row per line with comma-separated values, for example:
 
 Numerical methods are in `modules/`, the Streamlit interface is in `app.py`,
 and reusable UI components are in `ui/`.
+
+For a detailed explanation of the project, see [PROJECT_GUIDE.pdf](PROJECT_GUIDE.pdf).
