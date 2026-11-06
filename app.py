@@ -371,7 +371,7 @@ try:
             st.plotly_chart(root_convergence_plot(histories),
                             width="stretch", config={"displaylogo": False})
             st.caption("Each line shows how the method's error changes over its iterations. Lower values indicate a closer approximation.")
-        explanation("Method comparison", "Use the same equation and initial interval for every selected method. The reference root may be an exact value, a high-precision value, or a trusted benchmark.")
+        explanation("Method comparison", "Use the same equation and interval for both methods. Enter a known root if you want to compare the errors.")
 
     elif page in {"Bisection", "Newton–Raphson", "Secant", "Fixed-point"}:
         st.header(page); st.caption("Enter an equation, set the parameters, and run the method.")

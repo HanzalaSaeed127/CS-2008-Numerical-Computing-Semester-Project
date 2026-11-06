@@ -1,6 +1,6 @@
 # Numerica
 
-Numerica is a local Streamlit numerical-computing calculator for a university numerical methods course. It combines explicit teaching implementations with NumPy/SciPy routines for comparison and supports safe SymPy expressions rather than unrestricted `eval`.
+Numerica is a Streamlit calculator for numerical methods. It uses Python, NumPy, SciPy, and SymPy.
 
 ## Features
 
@@ -17,29 +17,22 @@ Numerica is a local Streamlit numerical-computing calculator for a university nu
   numerical display precision.
 - Iteration tables, CSV downloads, convergence plots, and input validation.
 
-## Windows setup
+## Setup on Windows
 
-The project uses a local `.venv`, so its packages are kept with the project
-and are not affected by closing or reopening VS Code. Open the project folder
-(`E:\Study\NC\project`) in VS Code and press `F5`, then select **Run Numerica
-(Streamlit)**. VS Code is configured to select `.venv` automatically.
-
-For a first-time setup, run:
+Open PowerShell in the project folder and run:
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-To run it manually after setup:
+Start the app with:
 
 ```powershell
 .venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-You can also double-click `run_app.bat` in the project folder. Do not use
-`python app.py`; that runs Streamlit outside its normal launcher and causes
-`missing ScriptRunContext` warnings.
+You can also double-click `run_app.bat`.
 
 Open http://localhost:8501. To run tests:
 
@@ -63,6 +56,7 @@ Matrices are entered one row per line with comma-separated values, for example:
 2,3
 ```
 
-## Structure and limitations
+## Project structure
 
-Numerical algorithms are in `modules/` and the presentation layer is in `app.py`. The UI is intentionally local and does not use external APIs. Multivariable optimization and SciPy ODE comparison are represented by reusable modules but the compact UI focuses on the most teachable scalar workflows. Complex eigenvalue display is available through NumPy's eigensolver; power iteration is intended for real matrices with a dominant eigenvalue.
+Numerical methods are in `modules/`, the Streamlit interface is in `app.py`,
+and reusable UI components are in `ui/`.
