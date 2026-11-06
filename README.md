@@ -42,19 +42,14 @@ Open http://localhost:8501. To run tests:
 
 ## Portable Windows package
 
-To create a ZIP that includes Python and all required packages, open
-PowerShell in the project folder and run:
+Windows users can download the portable package from the repository's
+[Releases page](https://github.com/HanzalaSaeed127/CS-2008-Numerical-Computing-Semester-Project/releases).
+Extract the ZIP and double-click `Start Numerica.bat`. Python and the required
+packages are already included, so no setup is needed. The package is for
+64-bit Windows.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build_portable.ps1
-```
-
-The ZIP is created in `dist/`. Share it as a GitHub Release asset. Users can
-extract it and double-click `Start Numerica.bat`; they do not need to install
-Python or run a package setup command. The package is for 64-bit Windows.
-
-The portable package is available from the repository's **Releases** page.
-GitHub's green **Code** button only provides the source-code ZIP.
+The `build_portable.ps1` script is only for creating a new release. GitHub's
+green **Code** button provides the source-code ZIP.
 
 ## Expression examples
 
