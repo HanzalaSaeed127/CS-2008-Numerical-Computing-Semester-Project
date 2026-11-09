@@ -10,7 +10,7 @@ import sympy as sp
 from modules.expression_parser import ExpressionError, make_function, derivative
 from modules.roots import bisection, fixed_point, newton, secant
 from modules.interpolation import lagrange, newton_divided_difference, cubic_spline, polynomial_fit
-from modules.integration import midpoint, trapezoidal, simpson, gaussian, newton_cotes
+from modules.integration import midpoint, trapezoidal, simpson, simpson_three_eighths, gaussian, newton_cotes
 from modules.differentiation import finite_difference
 from modules.ode_solvers import solve_ode, solve_ode_scipy
 from modules.linear_algebra import gaussian_elimination, _lu, cholesky, iterative_solve, condition_number
@@ -28,6 +28,7 @@ st.markdown("""<style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @keyframes ambient-glow { 0%, 100% { opacity:.55; transform:scale(1); } 50% { opacity:.8; transform:scale(1.08); } }
 @keyframes reveal-on-scroll { from { opacity:0; transform:translateY(16px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes page-drop { 0% { opacity:0; transform:translateY(-28px) scale(.985); filter:blur(3px); } 65% { opacity:1; transform:translateY(4px) scale(1.002); filter:blur(0); } 100% { opacity:1; transform:translateY(0) scale(1); } }
 html, body, [class*="css"] { font-family: Inter, sans-serif; }
 [data-testid="stAppViewContainer"] { background: radial-gradient(circle at 78% 8%, rgba(86,76,210,.28), transparent 28rem), radial-gradient(circle at 18% 82%, rgba(34,190,187,.12), transparent 24rem), #080b1c; color:#eef3ff; }
 [data-testid="stHeader"] { background:rgba(8,11,28,.72); }
@@ -35,7 +36,7 @@ html, body, [class*="css"] { font-family: Inter, sans-serif; }
 [data-testid="stSidebar"] * { color:#e7edff !important; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label { border-radius:10px; transition:background .2s ease, transform .2s ease; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:hover { background:rgba(91,224,205,.12); transform:translateX(4px); }
-.main .block-container { padding-top:1rem; padding-bottom:1rem; }
+.main .block-container { padding-top:1rem; padding-bottom:1rem; animation:page-drop .55s cubic-bezier(.22,.8,.24,1) both; transform-origin:top center; }
 [data-testid="stVerticalBlock"] { gap:.55rem; }
 [data-testid="stHorizontalBlock"] { gap:.75rem; }
 .hero { position:relative; overflow:hidden; background:linear-gradient(120deg,rgba(20,33,78,.92),rgba(54,48,143,.78)); border:1px solid rgba(136,161,255,.35); box-shadow:0 12px 40px rgba(34,27,105,.34), inset 0 1px rgba(255,255,255,.12); color:white; padding:1rem 1.8rem; border-radius:16px; margin-bottom:.7rem; animation:reveal-on-scroll .7s ease both; }
@@ -46,6 +47,8 @@ html, body, [class*="css"] { font-family: Inter, sans-serif; }
 .main [data-testid="stWidgetLabel"] { margin-bottom:.1rem; }
 .main [data-testid="stMarkdownContainer"], .main [data-testid="stDataFrame"], .main [data-testid="stMetric"] { animation:reveal-on-scroll .55s ease both; animation-timeline:view(); animation-range:entry 0% cover 18%; }
 .card, div[data-testid="stMetric"] { background:linear-gradient(145deg,rgba(26,35,75,.78),rgba(17,21,52,.78)); border:1px solid rgba(136,161,255,.22); border-radius:14px; padding:1rem 1.2rem; box-shadow:0 8px 26px rgba(2,5,20,.22), inset 0 1px rgba(255,255,255,.06); }
+.input-panel, .result-panel { background:rgba(15,21,51,.58); border:1px solid rgba(136,161,255,.2); border-radius:14px; padding:.45rem .7rem .2rem; }
+.result-panel { background:linear-gradient(145deg,rgba(26,35,75,.72),rgba(17,21,52,.62)); }
 div[data-testid="stMetric"] { padding:12px; transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
 div[data-testid="stMetric"]:hover { transform:translateY(-4px) scale(1.02); border-color:rgba(94,235,211,.62); box-shadow:0 12px 30px rgba(19,174,166,.18); }
 .muted { color:#aab8df; font-size:.9rem; }
@@ -167,7 +170,7 @@ def root_convergence_plot(histories):
 def result_table(rows):
     frame = pd.DataFrame(rows)
     display = format_dataframe(frame, DISPLAY_DIGITS, precision_mode == "Scientific")
-    st.dataframe(display, width="stretch", hide_index=True)
+    st.dataframe(display, width="stretch", height=min(260, 38 + len(display) * 35), hide_index=True)
     st.download_button("Download CSV", display.to_csv(index=False), "numerica-results.csv", "text/csv")
 
 def explanation(title, body):
@@ -261,33 +264,44 @@ def render_root_comparison():
 st.sidebar.markdown("## NUMERICA")
 sections = {
     "Root finding": ["Bisection", "Newton–Raphson", "Secant", "Fixed-point"],
-    "Explore & compare": ["Method comparison"],
     "Interpolation & fitting": ["Interpolation", "Polynomial fit"],
-    "Integration": ["Numerical integration", "Integration comparison"],
-    "Differentiation & ODE": ["Finite differences", "ODE solvers", "ODE comparison"],
+    "Integration": ["Midpoint", "Trapezoidal", "Simpson 1/3", "Simpson 3/8", "Newton–Cotes", "Gauss–Legendre"],
+    "Differentiation & ODE": ["Finite differences", "ODE solvers"],
     "Linear algebra": ["Linear systems", "Factorizations", "Iterative solvers", "Condition number"],
     "Approximation": ["Least squares", "QR / Gram–Schmidt / SVD"],
     "Optimization & eigen": ["Optimization", "Eigenvalues"],
     "Arithmetic": ["Error analysis", "Rounding & truncation", "IEEE 754"],
 }
-workspace_options = [item for values in sections.values() for item in values]
-def clear_graph_settings_override():
+section_pages = {"Integration": "Numerical integration"}
+def sync_integration_method():
+    st.session_state.method_Integration = st.session_state.integration_method
+
+def select_section_method(section):
+    selected = st.session_state[f"method_{section}"]
+    st.session_state.selected_page = section_pages.get(section, selected)
+    if section == "Integration":
+        st.session_state.integration_method = selected
     st.session_state.pop("page_override", None)
 
-selected_page = st.sidebar.selectbox(
-    "Select Method", workspace_options, index=workspace_options.index("Bisection"),
-    key="workspace_page", on_change=clear_graph_settings_override,
-)
+st.sidebar.markdown("### Select Method")
+if "selected_page" not in st.session_state:
+    st.session_state.selected_page = "Bisection"
+if "integration_method" not in st.session_state:
+    st.session_state.integration_method = "Midpoint"
+for section, methods in sections.items():
+    st.sidebar.markdown(f"**{section}**")
+    st.sidebar.selectbox(
+        f"{section} method", methods,
+        index=methods.index(st.session_state.integration_method)
+        if section == "Integration" and st.session_state.integration_method in methods
+        else (methods.index(st.session_state.selected_page)
+              if st.session_state.selected_page in methods else 0),
+        key=f"method_{section}", on_change=select_section_method, args=(section,),
+    )
 if st.sidebar.button("Graph Setting", type="secondary", key="graph_settings_button"):
     st.session_state.page_override = "Graph Setting"
     st.rerun()
-page = st.session_state.get("page_override", selected_page)
-with st.sidebar.expander("All methods", expanded=True):
-    for group, methods in sections.items():
-        if group == "Explore & compare":
-            continue
-        st.markdown(f"**{group}**")
-        st.markdown("\n".join(f"- {method}" for method in methods))
+page = st.session_state.get("page_override", st.session_state.selected_page)
 st.sidebar.markdown("---")
 
 st.markdown('<div class="hero"><h1>Numerica</h1></div>', unsafe_allow_html=True)
@@ -375,48 +389,58 @@ try:
 
     elif page in {"Bisection", "Newton–Raphson", "Secant", "Fixed-point"}:
         st.header(page); st.caption("Enter an equation, set the parameters, and run the method.")
-        c1, c2 = st.columns(2)
-        expression, parsed = equation_editor("f(x)", "x^3 - x - 2", key=f"{page}_f", examples=["x^3 - x - 2", "sin(x) - x/2", "2x + 3"])
-        tol = c1.number_input("Tolerance", min_value=1e-14, value=1e-8, format="%.1e")
-        max_iter = c1.number_input("Maximum iterations", min_value=1, value=100)
-        if parsed is None:
-            st.stop()
-        fn = make_function(expression)
-        if page == "Bisection":
-            a, b = c2.columns(2); lo, hi = a.number_input("Left endpoint", value=1.0), b.number_input("Right endpoint", value=2.0)
-            if st.button("Run method", type="primary"): result = bisection(fn, lo, hi, tol, max_iter)
-        elif page == "Newton–Raphson":
-            x0 = c2.number_input("Initial guess", value=1.5)
-            if st.button("Run method", type="primary"): result = newton(fn, x0, tol, max_iter, derivative(expression))
-        elif page == "Secant":
-            x0, x1 = c2.columns(2); a, b = x0.number_input("First guess", value=1.0), x1.number_input("Second guess", value=2.0)
-            if st.button("Run method", type="primary"): result = secant(fn, a, b, tol, max_iter)
-        else:
-            g, g_parsed = equation_editor("g(x)", "(x + 2)^(1/3)", key="fixed_point_g", examples=["(x + 2)^(1/3)", "cos(x)"])
-            if g_parsed is None:
-                st.stop()
-            x0 = c2.number_input("Initial guess", value=1.0)
-            if st.button("Run method", type="primary"): result = fixed_point(make_function(g), x0, tol, max_iter, fn)
-        if "result" in locals():
-            m1, m2, m3 = st.columns(3)
-            m1.latex(r"x \approx " + format_number(result.root, DISPLAY_DIGITS, precision_mode == "Scientific"))
-            m2.metric("|f(x)|", format_number(abs(result.value), DISPLAY_DIGITS, precision_mode == "Scientific"))
-            m3.metric("Iterations", len(result.iterations))
-            if result.converged:
-                st.success(result.message)
-            else:
-                
-                st.warning(result.message)
-            result_table(result.iterations)
-            if result.iterations:
-                plot_xy([r["iteration"] for r in result.iterations], [r["error"] for r in result.iterations], "Convergence history", "Iteration", "Error")
+        input_col, result_col = st.columns([1, 1.35], gap="large")
+        with input_col:
+            with st.container(border=True):
+                expression, parsed = equation_editor("f(x)", "x^3 - x - 2", key=f"{page}_f", examples=["x^3 - x - 2", "sin(x) - x/2", "2x + 3"])
+                tol = st.number_input("Tolerance", min_value=1e-14, value=1e-8, format="%.1e", key=f"{page}_tol")
+                max_iter = st.number_input("Maximum iterations", min_value=1, value=100, key=f"{page}_max_iter")
+                if parsed is None:
+                    st.stop()
+                fn = make_function(expression)
+                if page == "Bisection":
+                    a, b = st.columns(2); lo, hi = a.number_input("Left endpoint", value=1.0), b.number_input("Right endpoint", value=2.0)
+                    run_method = st.button("Run method", type="primary", key=f"{page}_run")
+                    if run_method: result = bisection(fn, lo, hi, tol, max_iter)
+                elif page == "Newton–Raphson":
+                    x0 = st.number_input("Initial guess", value=1.5)
+                    run_method = st.button("Run method", type="primary", key=f"{page}_run")
+                    if run_method: result = newton(fn, x0, tol, max_iter, derivative(expression))
+                elif page == "Secant":
+                    x0, x1 = st.columns(2); a, b = x0.number_input("First guess", value=1.0), x1.number_input("Second guess", value=2.0)
+                    run_method = st.button("Run method", type="primary", key=f"{page}_run")
+                    if run_method: result = secant(fn, a, b, tol, max_iter)
+                else:
+                    g, g_parsed = equation_editor("g(x)", "(x + 2)^(1/3)", key="fixed_point_g", examples=["(x + 2)^(1/3)", "cos(x)"])
+                    if g_parsed is None:
+                        st.stop()
+                    x0 = st.number_input("Initial guess", value=1.0)
+                    run_method = st.button("Run method", type="primary", key=f"{page}_run")
+                    if run_method: result = fixed_point(make_function(g), x0, tol, max_iter, fn)
+        with result_col:
+            with st.container(border=True):
+                st.subheader("Result")
+                if "result" in locals():
+                    m1, m2, m3 = st.columns(3)
+                    m1.latex(r"x \approx " + format_number(result.root, DISPLAY_DIGITS, precision_mode == "Scientific"))
+                    m2.metric("|f(x)|", format_number(abs(result.value), DISPLAY_DIGITS, precision_mode == "Scientific"))
+                    m3.metric("Iterations", len(result.iterations))
+                    if result.converged:
+                        st.success(result.message)
+                    else:
+                        st.warning(result.message)
+                    result_table(result.iterations)
+                    if result.iterations:
+                        plot_xy([r["iteration"] for r in result.iterations], [r["error"] for r in result.iterations], "Convergence history", "Iteration", "Error")
+                else:
+                    st.info("Enter the parameters and run the method to see the result here.")
         explanation(page, "Iterative root-finding methods seek an x for which **f(x) = 0**. Convergence is reported only when the requested tolerance is met.")
         render_root_comparison()
 
     elif page in {"Interpolation", "Polynomial fit"}:
         st.header(page);         x, y = points_editor(key=f"{page}_points")
         if page == "Interpolation":
-            method = st.selectbox("Method", ["Lagrange", "Newton divided difference", "Cubic spline"])
+            method = st.selectbox("Interpolation method", ["Lagrange", "Newton divided difference", "Cubic spline"], key="interpolation_method")
             points = st.text_input("Evaluate at", "0, 0.5, 1, 1.5, 2, 2.5, 3")
             if st.button("Run method", type="primary"):
                 q = parse_numbers(points, "evaluation points")
@@ -459,33 +483,50 @@ try:
             explanation("Polynomial fit", "Polynomial fitting methods are compared by their approximation residuals.")
 
     elif page in {"Numerical integration", "Integration comparison"}:
-        st.header(page);         expression, parsed = equation_editor("f(x)", "x^2", key=f"{page}_integrand", examples=["x^2", "sin(x)", "exp(-x^2)"])
+        st.header(page)
+        input_col, result_col = st.columns([1, 1.35], gap="large")
+        with input_col:
+            with st.container(border=True):
+                expression, parsed = equation_editor("f(x)", "x^2", key=f"{page}_integrand", examples=["x^2", "sin(x)", "exp(-x^2)"])
+                a, b = st.columns(2); lo, hi = a.number_input("Lower limit", value=0.0), b.number_input("Upper limit", value=1.0)
+                method = st.selectbox(
+                    "Integration method",
+                    ["Midpoint", "Trapezoidal", "Simpson 1/3", "Simpson 3/8", "Newton–Cotes", "Gauss–Legendre"],
+                    key="integration_method",
+                    on_change=sync_integration_method,
+                )
+                n = st.number_input("Subintervals / quadrature points", min_value=1, value=6)
+                run_integration = st.button("Run method", type="primary", key="integration_run")
         if parsed is None:
             st.stop()
-        a, b = st.columns(2); lo, hi = a.number_input("Lower limit", value=0.0), b.number_input("Upper limit", value=1.0)
-        method = st.selectbox("Method", ["Midpoint", "Trapezoidal", "Simpson 1/3", "Newton–Cotes", "Gauss–Legendre"]); n = st.number_input("Subintervals / quadrature points", min_value=1, value=4)
-        if st.button("Run method", type="primary"):
-            fn = make_function(expression); n = int(n)
-            if method == "Midpoint": value, nodes = midpoint(fn, lo, hi, n)
-            elif method == "Trapezoidal": value, nodes = trapezoidal(fn, lo, hi, n)
-            elif method == "Simpson 1/3": value, nodes = simpson(fn, lo, hi, n)
-            elif method == "Newton–Cotes": value, nodes, _ = newton_cotes(fn, lo, hi, n)
-            else: value, nodes = gaussian(fn, lo, hi, n)
-            st.metric("Approximate integral", f"{value:.12g}"); plot_xy(np.linspace(lo, hi, 300), fn(np.linspace(lo, hi, 300)), "Integrand", scatter=(nodes, fn(nodes)))
+        with result_col:
+            with st.container(border=True):
+                st.subheader("Result")
+                if run_integration:
+                    fn = make_function(expression); n = int(n)
+                    if method == "Midpoint": value, nodes = midpoint(fn, lo, hi, n)
+                    elif method == "Trapezoidal": value, nodes = trapezoidal(fn, lo, hi, n)
+                    elif method == "Simpson 1/3": value, nodes = simpson(fn, lo, hi, n)
+                    elif method == "Simpson 3/8": value, nodes = simpson_three_eighths(fn, lo, hi, n)
+                    elif method == "Newton–Cotes": value, nodes, _ = newton_cotes(fn, lo, hi, n)
+                    else: value, nodes = gaussian(fn, lo, hi, n)
+                    st.metric("Approximate integral", f"{value:.12g}"); plot_xy(np.linspace(lo, hi, 300), fn(np.linspace(lo, hi, 300)), "Integrand", scatter=(nodes, fn(nodes)))
+                else:
+                    st.info("Choose an integration method and run it to see the result here.")
             if page == "Integration comparison":
                 rows = []
-                for label, compute in [("Midpoint", midpoint), ("Trapezoidal", trapezoidal), ("Simpson 1/3", simpson), ("Gauss–Legendre", gaussian)]:
+                for label, compute in [("Midpoint", midpoint), ("Trapezoidal", trapezoidal), ("Simpson 1/3", simpson), ("Simpson 3/8", simpson_three_eighths), ("Gauss–Legendre", gaussian)]:
                     try:
-                        output = compute(fn, lo, hi, n if label != "Simpson 1/3" else (n if n % 2 == 0 else n + 1))[0]
+                        output = compute(fn, lo, hi, n if label not in {"Simpson 1/3"} else (n if n % 2 == 0 else n + 1))[0]
                         rows.append({"method": label, "estimate": output})
                     except ValueError as exc:
                         rows.append({"method": label, "estimate": str(exc)})
                 result_table(rows)
-        explanation(method, "Composite rules approximate the area by evaluating the integrand at structured nodes. Simpson's rule requires an even number of subintervals.")
+        explanation(method, "Composite rules approximate the area by evaluating the integrand at structured nodes. Simpson's 1/3 rule requires an even number of subintervals; Simpson's 3/8 rule requires a multiple of three.")
         if comparison_button("integration"):
             st.subheader("Compare integration methods")
             compare_a, compare_b = st.columns(2)
-            integration_methods = ["Midpoint", "Trapezoidal", "Simpson 1/3", "Newton–Cotes", "Gauss–Legendre"]
+            integration_methods = ["Midpoint", "Trapezoidal", "Simpson 1/3", "Simpson 3/8", "Newton–Cotes", "Gauss–Legendre"]
             method_a = compare_a.selectbox("Method 1", integration_methods, key="integration_compare_a")
             method_b = compare_b.selectbox("Method 2", integration_methods, index=1, key="integration_compare_b")
             if st.button("Compare integration results", type="primary", key="integration_compare_run"):
@@ -497,6 +538,7 @@ try:
                     if candidate == "Midpoint": estimate = midpoint(fn_compare, lo, hi, int(n))[0]
                     elif candidate == "Trapezoidal": estimate = trapezoidal(fn_compare, lo, hi, int(n))[0]
                     elif candidate == "Simpson 1/3": estimate = simpson(fn_compare, lo, hi, int(n if n % 2 == 0 else n + 1))[0]
+                    elif candidate == "Simpson 3/8": estimate = simpson_three_eighths(fn_compare, lo, hi, int(n))[0]
                     elif candidate == "Newton–Cotes": estimate = newton_cotes(fn_compare, lo, hi, int(n))[0]
                     else: estimate = gaussian(fn_compare, lo, hi, int(n))[0]
                     values.append(estimate)
@@ -508,14 +550,24 @@ try:
                 st.metric("Relative difference (%)", f"{abs(values[0] - values[1]) / max(abs(values[0]), 1e-15) * 100:.6g}")
 
     elif page == "Finite differences":
-        st.header(page); expression, parsed = equation_editor("f(x)", "sin(x)", key="difference_f", examples=["sin(x)", "x^2", "exp(x)"])
+        st.header(page)
+        input_col, result_col = st.columns([1, 1.35], gap="large")
+        with input_col:
+            with st.container(border=True):
+                expression, parsed = equation_editor("f(x)", "sin(x)", key="difference_f", examples=["sin(x)", "x^2", "exp(x)"])
+                x, h = st.columns(2); point = x.number_input("Evaluation point", value=1.0); step = h.number_input("Step size", value=1e-4, min_value=1e-12, format="%.1e")
+                scheme = st.selectbox("Differentiation scheme", ["forward", "backward", "central", "second"], key="difference_scheme")
+                run_difference = st.button("Run method", type="primary", key="difference_run")
         if parsed is None:
             st.stop()
-        x, h = st.columns(2); point = x.number_input("Evaluation point", value=1.0); step = h.number_input("Step size", value=1e-4, min_value=1e-12, format="%.1e")
-        scheme = st.selectbox("Scheme", ["forward", "backward", "central", "second"])
-        if st.button("Run method", type="primary"):
-            value = finite_difference(make_function(expression), point, step, scheme)
-            st.latex(f"f'({format_number(point, DISPLAY_DIGITS)}) \\approx {format_number(value, DISPLAY_DIGITS, precision_mode == 'Scientific')}")
+        with result_col:
+            with st.container(border=True):
+                st.subheader("Result")
+                if run_difference:
+                    value = finite_difference(make_function(expression), point, step, scheme)
+                    st.latex(f"f'({format_number(point, DISPLAY_DIGITS)}) \\approx {format_number(value, DISPLAY_DIGITS, precision_mode == 'Scientific')}")
+                else:
+                    st.info("Run the method to see the derivative here.")
         if comparison_button("finite_difference"):
             st.subheader("Compare differentiation schemes")
             compare_a, compare_b = st.columns(2)
@@ -540,7 +592,7 @@ try:
             st.stop()
         c1, c2 = st.columns(2)
         x0, y0 = c1.number_input("x₀", value=0.0), c2.number_input("y₀", value=0.5); xend = c1.number_input("Final x", value=2.0); steps = c2.number_input("Steps", min_value=1, value=20)
-        method = st.selectbox("Method", ["Euler", "Heun", "RK2", "RK4", "SciPy RK45"])
+        method = st.selectbox("ODE method", ["Euler", "Heun", "RK2", "RK4", "SciPy RK45"], key="ode_method")
         if st.button("Run method", type="primary"):
             fn = make_function(expression, ("x", "y"))
             if method == "SciPy RK45": x, y = solve_ode_scipy(fn, x0, y0, xend, int(steps))
@@ -583,7 +635,7 @@ try:
         A = matrix_editor(key=f"{page}_matrix")
         b = vector_editor(key=f"{page}_vector")
         if page == "Condition number":
-            norm = st.selectbox("Norm", ["2", "1", "inf"])
+            norm = st.selectbox("Norm", ["2", "1", "inf"], key="condition_norm")
             if st.button("Analyze conditioning", type="primary"):
                 norm_value = {"2": None, "1": 1, "inf": np.inf}[norm]
                 value = condition_number(A, norm_value)
@@ -594,12 +646,12 @@ try:
             if st.button("Solve", type="primary"):
                 solution, steps = gaussian_elimination(A, b, pivot); st.metric("Residual norm", f"{np.linalg.norm(A@solution-b):.3e}"); st.write("Solution", solution); st.dataframe(pd.DataFrame(steps))
         elif page == "Factorizations":
-            method = st.selectbox("Factorization", ["LU", "Cholesky"])
+            method = st.selectbox("Factorization", ["LU", "Cholesky"], key="factorization_method")
             if st.button("Factor", type="primary"):
                 if method == "LU": L, U = _lu(A); st.write("L", L); st.write("U", U)
                 else: st.write("L", cholesky(A))
         else:
-            method = st.selectbox("Method", ["Jacobi", "Gauss-Seidel"]); tol = st.number_input("Tolerance", value=1e-8, format="%.1e")
+            method = st.selectbox("Iterative method", ["Jacobi", "Gauss-Seidel"], key="iterative_method"); tol = st.number_input("Tolerance", value=1e-8, format="%.1e")
             if st.button("Solve", type="primary"):
                 solution, history, converged = iterative_solve(A, b, method, tol)
                 st.write("Solution", solution)
@@ -615,7 +667,7 @@ try:
         if st.button("Run method", type="primary"):
             if page == "Least squares": x, residuals, rank, singular = least_squares(A, b); st.write("Coefficients", x); st.metric("Rank", rank); st.metric("Residual norm", f"{np.linalg.norm(A@x-b):.3e}")
             else:
-                method = st.selectbox("Factorization", ["QR", "Gram–Schmidt", "SVD"])
+                method = st.selectbox("Approximation method", ["QR", "Gram–Schmidt", "SVD"], key="approximation_method")
                 if method == "QR": q, r = qr(A); st.write("Q", q); st.write("R", r)
                 elif method == "Gram–Schmidt": q, r = gram_schmidt(A); st.write("Q", q); st.write("R", r)
                 else: u, s, vh = svd(A); st.write("U", u); st.write("Singular values", s); st.write("Vᵀ", vh)
@@ -653,7 +705,7 @@ try:
                 else:
                     st.warning(result.message)
     elif page == "Eigenvalues":
-        st.header(page); A = matrix_editor(key="eigen_matrix", default=pd.DataFrame([[2.0, 1.0], [1.0, 2.0]], columns=["c1", "c2"])); method = st.selectbox("Method", ["Power iteration", "Inverse power iteration", "NumPy eigensolver"])
+        st.header(page); A = matrix_editor(key="eigen_matrix", default=pd.DataFrame([[2.0, 1.0], [1.0, 2.0]], columns=["c1", "c2"])); method = st.selectbox("Eigenvalue method", ["Power iteration", "Inverse power iteration", "NumPy eigensolver"], key="eigenvalue_method")
         shift = st.number_input("Shift", value=0.0) if method == "Inverse power iteration" else 0.0
         if st.button("Compute", type="primary"):
             if method == "Power iteration":
@@ -688,7 +740,7 @@ try:
             result_table([data])
             st.info("Rounding chooses the nearest representable decimal; truncation discards digits toward zero.")
     else:
-        st.header(page); value = st.number_input("Value", value=1.0); precision = st.selectbox("Precision", ["single", "double"])
+        st.header(page); value = st.number_input("Value", value=1.0); precision = st.selectbox("Precision", ["single", "double"], key="ieee_precision")
         if st.button("Inspect", type="primary"):
             data = ieee754(value, precision); st.json(data)
 except (ValueError, ExpressionError, FloatingPointError) as exc:

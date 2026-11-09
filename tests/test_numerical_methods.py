@@ -4,7 +4,7 @@ import pytest
 from modules.expression_parser import make_function
 from modules.roots import bisection, newton, secant, fixed_point
 from modules.interpolation import lagrange, newton_divided_difference, cubic_spline
-from modules.integration import midpoint, trapezoidal, simpson, gaussian
+from modules.integration import midpoint, trapezoidal, simpson, simpson_three_eighths, gaussian
 from modules.differentiation import finite_difference
 from modules.ode_solvers import solve_ode
 from modules.linear_algebra import gaussian_elimination, _lu, cholesky, iterative_solve
@@ -31,6 +31,7 @@ def test_interpolation_and_integration():
     assert midpoint(f, 0, 1, 100)[0] == pytest.approx(1/3, rel=1e-4)
     assert trapezoidal(f, 0, 1, 100)[0] == pytest.approx(1/3, rel=1e-4)
     assert simpson(f, 0, 1, 100)[0] == pytest.approx(1/3, rel=1e-10)
+    assert simpson_three_eighths(f, 0, 1, 6)[0] == pytest.approx(1/3, rel=1e-10)
     assert gaussian(f, 0, 1, 5)[0] == pytest.approx(1/3)
 
 
@@ -63,6 +64,7 @@ def test_approximation_and_eigen():
 
 def test_validation():
     with pytest.raises(ValueError): simpson(make_function("x"), 0, 1, 3)
+    with pytest.raises(ValueError): simpson_three_eighths(make_function("x"), 0, 1, 4)
     with pytest.raises(ValueError): lagrange([0, 0], [1, 2], [0.5])
 
 
